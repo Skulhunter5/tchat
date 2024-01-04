@@ -2,7 +2,7 @@ use crossterm::cursor::{Hide, MoveTo, Show};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::style::Print;
 use crossterm::terminal::{Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen};
-use crossterm::{event, terminal, QueueableCommand as _};
+use crossterm::{event, terminal, ExecutableCommand, QueueableCommand as _};
 use std::io::{self, Result};
 use std::io::{stdout, Write};
 use std::thread;
@@ -15,24 +15,30 @@ enum InterfaceResult {
 
 trait Interface {
     fn handle_keypress(&mut self, event: KeyEvent) -> Result<InterfaceResult>;
+    fn handle_resize(&mut self, width: u16, height: u16) -> Result<InterfaceResult>;
     fn render(&self) -> Result<()>;
 }
 
 struct Window {
     width: u16,
     height: u16,
+    horizontal_separator: String,
     prompt: String,
     history: Vec<String>,
 }
 
 impl Window {
     fn new(width: u16, height: u16) -> Self {
+        let mut horizontal_separator = "-".repeat(width as usize);
+        horizontal_separator.push_str("\r\n");
+
         let prompt = String::new();
         let history = Vec::new();
 
         Self {
             width,
             height,
+            horizontal_separator,
             prompt,
             history,
         }
@@ -67,11 +73,28 @@ impl Interface for Window {
         Ok(InterfaceResult::None)
     }
 
+    fn handle_resize(&mut self, width: u16, height: u16) -> Result<InterfaceResult> {
+        self.width = width;
+        self.height = height;
+        Ok(InterfaceResult::None)
+    }
+
     fn render(&self) -> Result<()> {
         let mut stdout = stdout();
-        // TODO: display
-        stdout.queue(MoveTo(0, self.height))?;
-        stdout.queue(Clear(ClearType::CurrentLine))?;
+        stdout.queue(Clear(ClearType::All))?;
+        let n = self.history.len() as u16;
+        let history_height = self.height - 2;
+        let first_row = history_height - n.min(history_height);
+        stdout.queue(MoveTo(0, first_row))?;
+        self.history
+            .iter()
+            .skip(n.checked_sub(history_height).unwrap_or(0) as usize)
+            .try_for_each(|msg| {
+                stdout.queue(Print(msg))?;
+                stdout.queue(Print("\r\n"))?;
+                Ok::<(), std::io::Error>(())
+            })?;
+        stdout.queue(Print(&self.horizontal_separator))?;
         stdout.queue(Print(&self.prompt))?;
         Ok(())
     }
@@ -96,7 +119,6 @@ fn main() -> io::Result<()> {
 
     let (width, height) = terminal::size()?;
     let mut window = Window::new(width, height);
-    stdout.queue(MoveTo(0, height))?;
     'outer: loop {
         while event::poll(std::time::Duration::ZERO)? {
             match event::read()? {
@@ -113,10 +135,16 @@ fn main() -> io::Result<()> {
                     0: width,
                     1: height,
                 } => {
-                    println!("New Size: {}x{}\r", width, height);
+                    let result = window.handle_resize(width, height)?;
+                    match result {
+                        InterfaceResult::Terminate => {
+                            break 'outer;
+                        }
+                        InterfaceResult::None => {}
+                    }
                 }
                 e => {
-                    println!("Event: {:?}", e);
+                    window.prompt = format!("unhandled event: {:?}", e);
                 }
             }
         }
