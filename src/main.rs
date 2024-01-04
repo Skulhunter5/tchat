@@ -108,15 +108,6 @@ fn main() -> io::Result<()> {
     stdout.queue(Hide)?;
     stdout.flush()?;
 
-    // down by {n}: \x1b[{n}B
-    // up by {n}: \x1b[{n}A
-    // right by {n}: \x1b[{n}C
-    // left by {n}: \x1b[{n}D
-
-    // specific row {n}: \x1b[{n};H
-    // specific column {n}: \x1b[{n}G
-    // specific row {n} and column {m}: \x1b[{n};{m}H
-
     let (width, height) = terminal::size()?;
     let mut window = Window::new(width, height);
     'outer: loop {
