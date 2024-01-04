@@ -25,6 +25,7 @@ struct Window {
     horizontal_separator: String,
     prompt: String,
     history: Vec<String>,
+    history_view: (usize, usize),
 }
 
 impl Window {
@@ -35,12 +36,15 @@ impl Window {
         let prompt = String::new();
         let history = Vec::new();
 
+        let history_view = (0, 0);
+
         Self {
             width,
             height,
             horizontal_separator,
             prompt,
             history,
+            history_view,
         }
     }
 }
@@ -113,27 +117,21 @@ fn main() -> io::Result<()> {
     'outer: loop {
         while event::poll(std::time::Duration::ZERO)? {
             match event::read()? {
-                Event::Key { 0: key_event } => {
-                    let result = window.handle_keypress(key_event)?;
-                    match result {
-                        InterfaceResult::Terminate => {
-                            break 'outer;
-                        }
-                        InterfaceResult::None => {}
+                Event::Key { 0: key_event } => match window.handle_keypress(key_event)? {
+                    InterfaceResult::Terminate => {
+                        break 'outer;
                     }
-                }
+                    InterfaceResult::None => {}
+                },
                 Event::Resize {
                     0: width,
                     1: height,
-                } => {
-                    let result = window.handle_resize(width, height)?;
-                    match result {
-                        InterfaceResult::Terminate => {
-                            break 'outer;
-                        }
-                        InterfaceResult::None => {}
+                } => match window.handle_resize(width, height)? {
+                    InterfaceResult::Terminate => {
+                        break 'outer;
                     }
-                }
+                    InterfaceResult::None => {}
+                },
                 e => {
                     window.prompt = format!("unhandled event: {:?}", e);
                 }
