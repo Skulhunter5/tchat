@@ -9,8 +9,6 @@ use crossterm::cursor::MoveTo;
 use crossterm::event::KeyCode;
 use crossterm::event::KeyModifiers;
 use crossterm::style::Print;
-use crossterm::terminal::Clear;
-use crossterm::terminal::ClearType;
 use crossterm::QueueableCommand;
 
 pub struct Chat {
@@ -75,7 +73,6 @@ impl Window for Chat {
         todo!()
     }
 
-    // TODO: add bounds check
     fn render(&self) -> Result<()> {
         let mut stdout = stdout();
 
