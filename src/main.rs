@@ -1,110 +1,17 @@
-use crossterm::cursor::{Hide, MoveTo, Show};
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
-use crossterm::style::Print;
-use crossterm::terminal::{Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen};
-use crossterm::{event, terminal, ExecutableCommand, QueueableCommand as _};
-use std::io::{self, Result};
+use anyhow::Result;
+use crossterm::cursor::{Hide, Show};
+use crossterm::event::Event;
+use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
+use crossterm::{event, terminal, QueueableCommand as _};
 use std::io::{stdout, Write};
 use std::thread;
 use std::time::Duration;
+use window::{Screen, Window, WindowAction};
 
-enum InterfaceResult {
-    None,
-    Terminate,
-}
+mod util;
+mod window;
 
-trait Interface {
-    fn handle_keypress(&mut self, event: KeyEvent) -> Result<InterfaceResult>;
-    fn handle_resize(&mut self, width: u16, height: u16) -> Result<InterfaceResult>;
-    fn render(&self) -> Result<()>;
-}
-
-struct Window {
-    width: u16,
-    height: u16,
-    horizontal_separator: String,
-    prompt: String,
-    history: Vec<String>,
-    history_view: (usize, usize),
-}
-
-impl Window {
-    fn new(width: u16, height: u16) -> Self {
-        let mut horizontal_separator = "-".repeat(width as usize);
-        horizontal_separator.push_str("\r\n");
-
-        let prompt = String::new();
-        let history = Vec::new();
-
-        let history_view = (0, 0);
-
-        Self {
-            width,
-            height,
-            horizontal_separator,
-            prompt,
-            history,
-            history_view,
-        }
-    }
-}
-
-impl Interface for Window {
-    fn handle_keypress(&mut self, event: KeyEvent) -> Result<InterfaceResult> {
-        match event.code {
-            KeyCode::Esc => {
-                self.width;
-                return Ok(InterfaceResult::Terminate);
-            }
-            KeyCode::Backspace => {
-                self.prompt.pop();
-            }
-            KeyCode::Char(c) => {
-                if c == 'c' && event.modifiers.contains(KeyModifiers::CONTROL) {
-                    return Ok(InterfaceResult::Terminate);
-                } else {
-                    self.prompt.push(c);
-                }
-            }
-            KeyCode::Enter => {
-                let old_prompt = std::mem::replace(&mut self.prompt, String::new());
-                self.history.push(old_prompt);
-            }
-            code => {
-                self.prompt = format!("Unhandled keycode: {:?}", code);
-            }
-        }
-        Ok(InterfaceResult::None)
-    }
-
-    fn handle_resize(&mut self, width: u16, height: u16) -> Result<InterfaceResult> {
-        self.width = width;
-        self.height = height;
-        Ok(InterfaceResult::None)
-    }
-
-    fn render(&self) -> Result<()> {
-        let mut stdout = stdout();
-        stdout.queue(Clear(ClearType::All))?;
-        let n = self.history.len() as u16;
-        let history_height = self.height - 2;
-        let first_row = history_height - n.min(history_height);
-        stdout.queue(MoveTo(0, first_row))?;
-        self.history
-            .iter()
-            .skip(n.checked_sub(history_height).unwrap_or(0) as usize)
-            .try_for_each(|msg| {
-                stdout.queue(Print(msg))?;
-                stdout.queue(Print("\r\n"))?;
-                Ok::<(), std::io::Error>(())
-            })?;
-        stdout.queue(Print(&self.horizontal_separator))?;
-        stdout.queue(Print(&self.prompt))?;
-        Ok(())
-    }
-}
-
-fn main() -> io::Result<()> {
+fn main() -> Result<()> {
     let mut stdout = stdout();
 
     terminal::enable_raw_mode()?;
@@ -113,27 +20,27 @@ fn main() -> io::Result<()> {
     stdout.flush()?;
 
     let (width, height) = terminal::size()?;
-    let mut window = Window::new(width, height);
+    let mut window = Screen::new(width, height);
     'outer: loop {
         while event::poll(std::time::Duration::ZERO)? {
             match event::read()? {
                 Event::Key { 0: key_event } => match window.handle_keypress(key_event)? {
-                    InterfaceResult::Terminate => {
+                    WindowAction::Terminate => {
                         break 'outer;
                     }
-                    InterfaceResult::None => {}
+                    WindowAction::None => {}
                 },
                 Event::Resize {
                     0: width,
                     1: height,
                 } => match window.handle_resize(width, height)? {
-                    InterfaceResult::Terminate => {
+                    WindowAction::Terminate => {
                         break 'outer;
                     }
-                    InterfaceResult::None => {}
+                    WindowAction::None => {}
                 },
                 e => {
-                    window.prompt = format!("unhandled event: {:?}", e);
+                    window.set_prompt(format!("unhandled event: {:?}", e));
                 }
             }
         }
