@@ -76,9 +76,7 @@ impl Window for Chat {
     fn render(&self) -> Result<()> {
         let mut stdout = stdout();
 
-        let x = self.rect.x;
-        let y = self.rect.y;
-        let height = self.rect.h;
+        let (x, y, width, height) = self.rect.unpack();
 
         let n = self.history.len() as u16;
         let history_height = height - 2;
@@ -92,15 +90,19 @@ impl Window for Chat {
             .enumerate()
             .try_for_each(|(i, msg)| {
                 stdout.queue(MoveTo(x, first_row + i as u16))?;
-                stdout.queue(Print(msg))?;
+                stdout.queue(Print(&msg[..msg.len().min(width as usize)]))?;
                 Ok::<(), std::io::Error>(())
             })?;
         // render separator
         stdout.queue(MoveTo(x, y + height - 2))?;
         stdout.queue(Print(&self.horizontal_separator))?;
         // render prompt
-        stdout.queue(MoveTo(x, y + height - 1))?;
-        stdout.queue(Print(&self.prompt))?;
+        {
+            stdout.queue(MoveTo(x, y + height - 1))?;
+            let start = self.prompt.len().checked_sub(width as usize).unwrap_or(0);
+            let end = (start + width as usize).min(self.prompt.len());
+            stdout.queue(Print(&self.prompt[start..end]))?;
+        }
         Ok(())
     }
 }
