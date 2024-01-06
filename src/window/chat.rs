@@ -39,6 +39,7 @@ impl Chat {
 
     pub fn resize(&mut self, rect: Rectangle<u16>) {
         self.rect = rect;
+        self.horizontal_separator = "-".repeat(self.rect.w as usize);
     }
 }
 
