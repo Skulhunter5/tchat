@@ -2,4 +2,5 @@
 Simple terminal TUI chat application.
 
 ## Current state
-For Currently, tchat is still absolutely in early phase, it doesn't yet actually have any client/server model. For now, it's basically just a single user chat.
+Currently, tchat still doesn't actually have any client/server. Therefore, it's basically just a single user chat. \
+The first plan is to get the a basic chat working and then do the client/server model.
