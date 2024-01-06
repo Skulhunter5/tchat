@@ -1,5 +1,4 @@
 use anyhow::Result;
-use crossterm::cursor::{Hide, Show};
 use crossterm::event::Event;
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::{event, terminal, QueueableCommand as _};
@@ -16,7 +15,6 @@ fn main() -> Result<()> {
 
     terminal::enable_raw_mode()?;
     stdout.queue(EnterAlternateScreen)?;
-    stdout.queue(Hide)?;
     stdout.flush()?;
 
     let (width, height) = terminal::size()?;
@@ -50,7 +48,6 @@ fn main() -> Result<()> {
     }
 
     stdout.queue(LeaveAlternateScreen)?;
-    stdout.queue(Show)?;
     stdout.flush()?;
     terminal::disable_raw_mode().unwrap();
 

@@ -4,7 +4,7 @@
 - [ ] make history scrollable
 - [ ] wrap messages
 - [ ] allow pasting
-- [ ] show cursor and navigate through prompt
+- [ ] navigate through prompt
 
 ### In Progress
 

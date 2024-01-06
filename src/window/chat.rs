@@ -102,6 +102,8 @@ impl Window for Chat {
             let start = self.prompt.len().checked_sub(width as usize).unwrap_or(0);
             let end = (start + width as usize).min(self.prompt.len());
             stdout.queue(Print(&self.prompt[start..end]))?;
+            // put cursor behind prompt
+            stdout.queue(MoveTo(x + end as u16, y + height - 1))?;
         }
         Ok(())
     }
