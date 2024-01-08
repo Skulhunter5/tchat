@@ -1,35 +1,73 @@
 use anyhow::Result;
 use std::{
-    io::{stdout, Write},
+    io::{stdout, ErrorKind, Read, Write},
+    net::TcpStream,
+    sync::mpsc,
     thread,
     time::Duration,
 };
 
 use crossterm::{
     event::{self, Event},
+    style::Print,
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
     QueueableCommand,
 };
 
-use crate::window::{Screen, Window, WindowAction};
+use crate::{
+    constants::MAX_MESSAGE_SIZE,
+    window::{Screen, Window, WindowAction},
+};
 
-pub struct Client;
+pub struct Client {
+    remote_address: String,
+}
 
 impl Client {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(remote_address: String) -> Self {
+        Self { remote_address }
     }
 
     pub fn run(&self) -> Result<()> {
         let mut stdout = stdout();
 
+        // Setup terminal
         terminal::enable_raw_mode()?;
         stdout.queue(EnterAlternateScreen)?;
+        stdout.queue(Print("Connecting..."))?;
         stdout.flush()?;
 
+        // initiate connection
+        let mut stream = TcpStream::connect(&self.remote_address)?;
+        let mut buffer = [0u8; MAX_MESSAGE_SIZE];
+        stream.set_nonblocking(true)?;
+
+        let (sender, receiver) = mpsc::channel::<String>();
+
         let (width, height) = terminal::size()?;
-        let mut window = Screen::new(width, height);
+        let mut window = Screen::new(width, height, sender);
         'outer: loop {
+            // receive from server
+            loop {
+                let n = match stream.read(&mut buffer) {
+                    Ok(n) => Ok(n),
+                    Err(e) if e.kind() == ErrorKind::WouldBlock => break,
+                    Err(e) => Err(e),
+                }?;
+                let message = String::from_utf8(buffer[..n].to_vec())?;
+                window.add_message(message);
+            }
+
+            loop {
+                match receiver.recv_timeout(Duration::ZERO) {
+                    Ok(message) => {
+                        stream.write_all(&message.as_bytes()).unwrap();
+                    }
+                    Err(_) => break,
+                }
+            }
+
+            // handle input
             while event::poll(std::time::Duration::ZERO)? {
                 match event::read()? {
                     Event::Key { 0: key_event } => match window.handle_keypress(key_event)? {
@@ -52,6 +90,8 @@ impl Client {
                     }
                 }
             }
+
+            //render
             window.render()?;
             stdout.flush()?;
             thread::sleep(Duration::from_millis(16));

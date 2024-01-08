@@ -1,4 +1,5 @@
 use std::io::stdout;
+use std::sync::mpsc::Sender;
 
 use crate::util::Rectangle;
 
@@ -16,10 +17,11 @@ pub struct Chat {
     horizontal_separator: String,
     prompt: String,
     history: Vec<String>,
+    sender: Sender<String>,
 }
 
 impl Chat {
-    pub fn new(rect: Rectangle<u16>) -> Self {
+    pub fn new(rect: Rectangle<u16>, sender: Sender<String>) -> Self {
         let horizontal_separator = "-".repeat(rect.w as usize);
 
         let prompt = String::new();
@@ -30,6 +32,7 @@ impl Chat {
             prompt,
             horizontal_separator,
             history,
+            sender,
         }
     }
 
@@ -40,6 +43,10 @@ impl Chat {
     pub fn resize(&mut self, rect: Rectangle<u16>) {
         self.rect = rect;
         self.horizontal_separator = "-".repeat(self.rect.w as usize);
+    }
+
+    pub fn add_message(&mut self, message: String) {
+        self.history.push(message);
     }
 }
 
@@ -60,8 +67,9 @@ impl Window for Chat {
                 }
             }
             KeyCode::Enter => {
-                let old_prompt = std::mem::replace(&mut self.prompt, String::new());
-                self.history.push(old_prompt);
+                let message = std::mem::replace(&mut self.prompt, String::new());
+                self.sender.send(message).unwrap();
+                //self.history.push(old_prompt);
             }
             code => {
                 self.prompt = format!("Unhandled keycode: {:?}", code);

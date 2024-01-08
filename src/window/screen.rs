@@ -1,4 +1,5 @@
 use std::io::stdout;
+use std::sync::mpsc::Sender;
 
 use crate::util::Rectangle;
 use crate::window::{Window, WindowAction};
@@ -16,8 +17,8 @@ pub struct Screen {
 }
 
 impl Screen {
-    pub fn new(width: u16, height: u16) -> Self {
-        let chat = Chat::new(Rectangle::new(0, 0, width, height));
+    pub fn new(width: u16, height: u16, sender: Sender<String>) -> Self {
+        let chat = Chat::new(Rectangle::new(0, 0, width, height), sender);
 
         Self {
             width,
@@ -28,6 +29,10 @@ impl Screen {
 
     pub fn set_prompt(&mut self, prompt: String) {
         self.chat.set_prompt(prompt);
+    }
+
+    pub fn add_message(&mut self, message: String) {
+        self.chat.add_message(message);
     }
 }
 

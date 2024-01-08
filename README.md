@@ -1,6 +1,8 @@
-# tchat [WIP]
-Simple terminal TUI chat application.
+# tchat
+Terminal TUI multi-user chat application.
 
-## Current state
-Currently, tchat still doesn't actually have any client/server. Therefore, it's basically just a single user chat. \
-The first plan is to get the a basic chat working and then do the client/server model.
+# Plans
+- [ ] Add user accounts
+- [ ] Add multi-server system
+- [ ] Add support for self-hosted servers
+
