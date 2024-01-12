@@ -1,11 +1,12 @@
 use std::io::stdout;
-use std::sync::mpsc::Sender;
 
 use crate::util::Rectangle;
 
 use super::Window;
 use super::WindowAction;
 use anyhow::Result;
+use crossbeam_channel::Receiver;
+use crossbeam_channel::Sender;
 use crossterm::cursor::MoveTo;
 use crossterm::event::KeyCode;
 use crossterm::event::KeyModifiers;
@@ -17,11 +18,16 @@ pub struct Chat {
     horizontal_separator: String,
     prompt: String,
     history: Vec<String>,
-    sender: Sender<String>,
+    messages_in: Receiver<String>,
+    messages_out: Sender<String>,
 }
 
 impl Chat {
-    pub fn new(rect: Rectangle<u16>, sender: Sender<String>) -> Self {
+    pub fn new(
+        rect: Rectangle<u16>,
+        messages_in: Receiver<String>,
+        messages_out: Sender<String>,
+    ) -> Self {
         let horizontal_separator = "-".repeat(rect.w as usize);
 
         let prompt = String::new();
@@ -32,7 +38,8 @@ impl Chat {
             prompt,
             horizontal_separator,
             history,
-            sender,
+            messages_in,
+            messages_out,
         }
     }
 
@@ -44,13 +51,17 @@ impl Chat {
         self.rect = rect;
         self.horizontal_separator = "-".repeat(self.rect.w as usize);
     }
-
-    pub fn add_message(&mut self, message: String) {
-        self.history.push(message);
-    }
 }
 
 impl Window for Chat {
+    fn update(&mut self) -> Result<()> {
+        while let Ok(message) = self.messages_in.try_recv() {
+            self.history.push(message);
+        }
+
+        Ok(())
+    }
+
     fn handle_keypress(&mut self, event: crossterm::event::KeyEvent) -> Result<WindowAction> {
         match event.code {
             KeyCode::Esc => {
@@ -68,7 +79,10 @@ impl Window for Chat {
             }
             KeyCode::Enter => {
                 let message = std::mem::replace(&mut self.prompt, String::new());
-                self.sender.send(message).unwrap();
+                let res = self.messages_out.send(message);
+                if let Err(e) = res {
+                    self.prompt = e.to_string();
+                }
                 //self.history.push(old_prompt);
             }
             code => {

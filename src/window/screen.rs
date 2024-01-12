@@ -1,9 +1,9 @@
 use std::io::stdout;
-use std::sync::mpsc::Sender;
 
 use crate::util::Rectangle;
 use crate::window::{Window, WindowAction};
 use anyhow::Result;
+use crossbeam_channel::{Receiver, Sender};
 use crossterm::event::KeyEvent;
 use crossterm::terminal::{Clear, ClearType};
 use crossterm::QueueableCommand as _;
@@ -17,8 +17,17 @@ pub struct Screen {
 }
 
 impl Screen {
-    pub fn new(width: u16, height: u16, sender: Sender<String>) -> Self {
-        let chat = Chat::new(Rectangle::new(0, 0, width, height), sender);
+    pub fn new(
+        width: u16,
+        height: u16,
+        messages_in: Receiver<String>,
+        messages_out: Sender<String>,
+    ) -> Self {
+        let chat = Chat::new(
+            Rectangle::new(0, 0, width, height),
+            messages_in,
+            messages_out,
+        );
 
         Self {
             width,
@@ -30,13 +39,14 @@ impl Screen {
     pub fn set_prompt(&mut self, prompt: String) {
         self.chat.set_prompt(prompt);
     }
-
-    pub fn add_message(&mut self, message: String) {
-        self.chat.add_message(message);
-    }
 }
 
 impl Window for Screen {
+    fn update(&mut self) -> Result<()> {
+        self.chat.update()?;
+        Ok(())
+    }
+
     fn handle_keypress(&mut self, event: KeyEvent) -> Result<WindowAction> {
         self.chat.handle_keypress(event)
     }
