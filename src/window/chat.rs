@@ -79,11 +79,7 @@ impl Window for Chat {
             }
             KeyCode::Enter => {
                 let message = std::mem::replace(&mut self.prompt, String::new());
-                let res = self.messages_out.send(message);
-                if let Err(e) = res {
-                    self.prompt = e.to_string();
-                }
-                //self.history.push(old_prompt);
+                self.messages_out.send(message.clone())?;
             }
             code => {
                 self.prompt = format!("Unhandled keycode: {:?}", code);
